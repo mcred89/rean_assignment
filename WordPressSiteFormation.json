@@ -85,6 +85,31 @@
       }
     },
 
+    "AddRoutingTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : { "Ref" : "WordpressVPC" }
+       }
+      },
+
+    "AddRouteToIG" : {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn" : "WordpressIG",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "AddRoutingTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "WordpressIG" }
+      }
+     },
+
+    "AssociateSubenettoRouteTable": {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "WordpressSubnet" },
+        "RouteTableId" : { "Ref" : "AddRoutingTable" }
+      }
+     },
+
     "CMSecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
@@ -129,25 +154,17 @@
                           { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
         "SubnetId" : { "Ref" : "WordpressSubnet" },
         "Tags" : [ {"Key" : "Name", "Value" : "CMEC2Instance"},
-                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ]
+                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ],
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+            "#!/bin/bash -xe\n",
+            "pip install ansible\n",
+            "wget https://raw.githubusercontent.com/mcred89/rean_assignment/master/wordpress_site.yml -O /home/ec2-user/wordpress_site.yml\n",
+            "wget https://s3.amazonaws.com/TempKeyStoreMcIlroy/MyKeyPair.pem -O /root/.ssh/id_rsa.pub\n",
+            "echo \"*  *  *  *  * /usr/local/bin/ansible-playbook all -i /home/ec2-user/hosts -b -u ec2-user /home/ec2-user/wordpress_site.yml\" > ansiblecron && crontab ansiblecron\n",
+            { "Fn::Sub": [ "echo ${wpinstanceip} >> /home/ec2-user/hosts", { "wpinstanceip": {"Fn::GetAtt" : [ "WPEC2Instance", "PrivateIp" ]}}]}
+            ]]}}
        },
-       "Metadata" : {
-          "AWS::CloudFormation::Init" : {
-            "config" : {
-              "commands" : {
-                "ansible_install" : { "command" : "pip install ansible" },
-                "get_playbook" : {
-                  "command" : "wget https://raw.githubusercontent.com/mcred89/rean_assignment/master/wordpress_site.yml",
-                  "cwd" : "/home/ec2-user/"
-                 },
-                "create_cronjob" : { "command" : "echo \"*  *  *  *  * /usr/bin/ansible-playbook all -b /home/ec2-user/wordpress_site.yml\" >> /etc/crontab" }
-              },
-              "files" : {
-                "/etc/ansible/hosts" : { "content" : { "Fn::GetAtt" : [ "WPEC2Instance", "PrivateIp" ] } }
-                }  
-            }  
-           }
-        }
+       "DependsOn" : "WPEC2Instance"
     },
 
     "WPEC2Instance" : {
@@ -160,23 +177,18 @@
                           { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
         "SubnetId" : { "Ref" : "WordpressSubnet" },
         "Tags" : [ {"Key" : "Name", "Value" : "WPEC2Instance"},
-                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ]
-      }, 
-        "Metadata" : {
-          "AWS::CloudFormation::Init" : {
-            "config" : {
-              "commands" : {
-                "install_docker" : { "command" : "yum install docker -y" },
-                "start_enable_docker" : { "command" : "service docker start && chkconfig docker on" },
-                "pull_docker_images" : { "command" : "docker pull mysql && docker pull wordpress" },
-                "run_mysql" : { "command" : "docker run --name rean_mysql -e MYSQL_ROOT_PASSWORD=password -d mysql" },
-                "run_wordpress" : { "command" : "docker run --name rean_wordpress --link rean_mysql:mysql -p 80:80 -d wordpress" }
-              }
-            }
-          }
-      }
-    }
-},
+                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ],
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+            "#!/bin/bash -xe\n",
+            "yum install docker -y\n",
+            "service docker start && chkconfig docker on\n",
+            "docker pull mysql && docker pull wordpress\n",
+            "docker run --name rean_mysql -e MYSQL_ROOT_PASSWORD=password -d mysql\n",
+            "docker run --name rean_wordpress --link rean_mysql:mysql -p 80:80 -d wordpress\n"
+            ]]}}
+      } 
+     } 
+ },
 
   "Outputs" : {
     "AZ" : {
