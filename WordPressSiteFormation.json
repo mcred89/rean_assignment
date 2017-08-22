@@ -14,7 +14,7 @@
       "Description" : "EC2 instance type",
       "Type" : "String",
       "Default" : "t2.micro",
-      "AllowedValues" : [ "t1.micro", "t2.small"],
+      "AllowedValues" : [ "t2.micro", "t2.small"],
       "ConstraintDescription" : "must be a valid EC2 instance type."
     }
   },
@@ -53,7 +53,8 @@
     	  "EnableDnsSupport" : "true",
     	  "EnableDnsHostnames" : "true",
         "InstanceTenancy" : "default",
-        "Tags" : [ {"Name" : "WordpressVPC", "Applicant" : "Sean McIlroy"} ]
+        "Tags" : [ {"Key" : "Name", "Value" : "WordpressVPC"},
+                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"} ]
       }
     },
     
@@ -61,16 +62,18 @@
       "Type" : "AWS::EC2::Subnet",
       "Properties" : {
         "VpcId" : { "Ref": "WordpressVPC" },
-        "CiderBlock" : "10.0.0.0/16",
+        "CidrBlock" : "10.0.0.0/16",
         "MapPublicIpOnLaunch" : "true",
-        "Tags" : [ {"Name" : "WordpressSubnet", "Applicant" : "Sean McIlroy"} ]
+        "Tags" : [ {"Key" : "Name", "Value" : "WordpressSubnet"},
+                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ]
       }
     },
 
     "WordpressIG": {
       "Type": "AWS::EC2::InternetGateway",
       "Properties": {
-        "Tags" : [ {"Name" : "WordpressIG", "Applicant" : "Sean McIlroy"} ]
+        "Tags" : [ {"Key" : "Name", "Value" : "WordpresIG"},
+                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ]
       }
     },
 
@@ -82,17 +85,53 @@
       }
     },
 
+    "CMSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable SSH access",
+        "VpcId" : { "Ref" : "WordpressVPC" },
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : "0.0.0.0/0"
+        } ]
+      }
+    },
+
+    "WPSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable HTTP and SSH access.",
+        "VpcId" : { "Ref" : "WordpressVPC" },
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "80",
+          "ToPort" : "80",
+          "CidrIp" : "0.0.0.0/0"
+        }]
+      }
+    },
+
     "CMEC2Instance" : {
       "Type" : "AWS::EC2::Instance",
       "Properties" : {
         "InstanceType" : { "Ref" : "InstanceType" },
-        "SecurityGroups" : [ { "Ref" : "CMSecurityGroup" } ],
+        "SecurityGroupIds" : [{ "Ref" : "CMSecurityGroup" }],
         "KeyName" : { "Ref" : "KeyName" },
         "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
                           { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
         "SubnetId" : { "Ref" : "WordpressSubnet" },
-        "Tags" : [ {"Name" : "CM Node", "Applicant" : "Sean McIlroy"} ],
-        "Metadata" : {
+        "Tags" : [ {"Key" : "Name", "Value" : "CMEC2Instance"},
+                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ]
+       },
+       "Metadata" : {
           "AWS::CloudFormation::Init" : {
             "config" : {
               "commands" : {
@@ -109,19 +148,20 @@
             }  
            }
         }
-       }
     },
 
     "WPEC2Instance" : {
       "Type" : "AWS::EC2::Instance",
       "Properties" : {
         "InstanceType" : { "Ref" : "InstanceType" },
-        "SecurityGroups" : [ { "Ref" : "WPSecurityGroup" } ],
+        "SecurityGroupIds" : [{ "Ref" : "WPSecurityGroup" }],
         "KeyName" : { "Ref" : "KeyName" },
         "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
                           { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
         "SubnetId" : { "Ref" : "WordpressSubnet" },
-        "Tags" : [ {"Name" : "WP Node", "Applicant" : "Sean McIlroy"} ],
+        "Tags" : [ {"Key" : "Name", "Value" : "WPEC2Instance"},
+                   {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ]
+      }, 
         "Metadata" : {
           "AWS::CloudFormation::Init" : {
             "config" : {
@@ -134,39 +174,6 @@
               }
             }
           }
-        }
-      }
-    },
-
-    "CMSecurityGroup" : {
-      "Type" : "AWS::EC2::SecurityGroup",
-      "Properties" : {
-        "GroupDescription" : "Enable SSH access",
-        "SecurityGroupIngress" : [ {
-          "IpProtocol" : "tcp",
-          "FromPort" : "22",
-          "ToPort" : "22",
-          "CidrIp" : "0.0.0.0/0"
-        } ]
-      }
-    },
-
-    "WPSecurityGroup" : {
-      "Type" : "AWS::EC2::SecurityGroup",
-      "Properties" : {
-        "GroupDescription" : "Enable HTTP and SSH access.",
-        "SecurityGroupIngress" : [ {
-          "IpProtocol" : "tcp",
-          "FromPort" : "22",
-          "ToPort" : "22",
-          "CidrIp" : "0.0.0.0/0"
-        }, 
-        {
-          "IpProtocol" : "tcp",
-          "FromPort" : "80",
-          "ToPort" : "80",
-          "CidrIp" : "0.0.0.0/0"
-        }]
       }
     }
 },
