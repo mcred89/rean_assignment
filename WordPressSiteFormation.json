@@ -1,0 +1,201 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "",
+
+  "Parameters" : {
+    "KeyName": {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+
+    "InstanceType" : {
+      "Description" : "EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues" : [ "t1.micro", "t2.small"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    }
+  },
+
+  "Mappings" : {
+    "AWSInstanceType2Arch" : {
+      "t2.micro"    : { "Arch" : "HVM64"  },
+      "t2.small"    : { "Arch" : "HVM64"  }
+    },
+
+    "AWSRegionArch2AMI" : {
+      "us-east-1"        : {"PV64" : "ami-2a69aa47", "HVM64" : "ami-6869aa05", "HVMG2" : "ami-22b68b59"},
+      "us-west-2"        : {"PV64" : "ami-7f77b31f", "HVM64" : "ami-7172b611", "HVMG2" : "ami-be4ea3c6"},
+      "us-west-1"        : {"PV64" : "ami-a2490dc2", "HVM64" : "ami-31490d51", "HVMG2" : "ami-cfe5cfaf"},
+      "eu-west-1"        : {"PV64" : "ami-4cdd453f", "HVM64" : "ami-f9dd458a", "HVMG2" : "ami-aedb26d7"},
+      "eu-west-2"        : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-886369ec", "HVMG2" : "NOT_SUPPORTED"},
+      "eu-central-1"     : {"PV64" : "ami-6527cf0a", "HVM64" : "ami-ea26ce85", "HVMG2" : "ami-40b8102f"},
+      "ap-northeast-1"   : {"PV64" : "ami-3e42b65f", "HVM64" : "ami-374db956", "HVMG2" : "ami-d95aabbf"},
+      "ap-northeast-2"   : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-2b408b45", "HVMG2" : "NOT_SUPPORTED"},
+      "ap-southeast-1"   : {"PV64" : "ami-df9e4cbc", "HVM64" : "ami-a59b49c6", "HVMG2" : "ami-15660276"},
+      "ap-southeast-2"   : {"PV64" : "ami-63351d00", "HVM64" : "ami-dc361ebf", "HVMG2" : "ami-0b5a4168"},
+      "ap-south-1"       : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-ffbdd790", "HVMG2" : "ami-f4cdb79b"},
+      "us-east-2"        : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-f6035893", "HVMG2" : "NOT_SUPPORTED"},
+      "ca-central-1"     : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-730ebd17", "HVMG2" : "NOT_SUPPORTED"},
+      "sa-east-1"        : {"PV64" : "ami-1ad34676", "HVM64" : "ami-6dd04501", "HVMG2" : "NOT_SUPPORTED"},
+      "cn-north-1"       : {"PV64" : "ami-77559f1a", "HVM64" : "ami-8e6aa0e3", "HVMG2" : "NOT_SUPPORTED"}
+    }
+
+  },
+
+  "Resources" : {
+    "WordpressVPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock" : "10.0.0.0/16",
+    	  "EnableDnsSupport" : "true",
+    	  "EnableDnsHostnames" : "true",
+        "InstanceTenancy" : "default",
+        "Tags" : [ {"Name" : "WordpressVPC", "Applicant" : "Sean McIlroy"} ]
+      }
+    },
+    
+    "WordpressSubnet": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref": "WordpressVPC" },
+        "CiderBlock" : "10.0.0.0/16",
+        "MapPublicIpOnLaunch" : "true",
+        "Tags" : [ {"Name" : "WordpressSubnet", "Applicant" : "Sean McIlroy"} ]
+      }
+    },
+
+    "WordpressIG": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags" : [ {"Name" : "WordpressIG", "Applicant" : "Sean McIlroy"} ]
+      }
+    },
+
+    "AttachGateway" : {
+      "Type" : "AWS::EC2::VPCGatewayAttachment",
+      "Properties" : {
+        "VpcId" : { "Ref" : "WordpressVPC" },
+        "InternetGatewayId" : { "Ref" : "WordpressIG" }
+      }
+    },
+
+    "CMEC2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "SecurityGroups" : [ { "Ref" : "CMSecurityGroup" } ],
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+        "SubnetId" : { "Ref" : "WordpressSubnet" },
+        "Tags" : [ {"Name" : "CM Node", "Applicant" : "Sean McIlroy"} ],
+        "Metadata" : {
+          "AWS::CloudFormation::Init" : {
+            "config" : {
+              "commands" : {
+                "ansible_install" : { "command" : "pip install ansible" },
+                "get_playbook" : {
+                  "command" : "wget https://raw.githubusercontent.com/mcred89/rean_assignment/master/wordpress_site.yml",
+                  "cwd" : "/home/ec2-user/"
+                 },
+                "create_cronjob" : { "command" : "echo \"*  *  *  *  * /usr/bin/ansible-playbook all -b /home/ec2-user/wordpress_site.yml\" >> /etc/crontab" }
+              },
+              "files" : {
+                "/etc/ansible/hosts" : { "content" : { "Fn::GetAtt" : [ "WPEC2Instance", "PrivateIp" ] } }
+                }  
+            }  
+           }
+        }
+       }
+    },
+
+    "WPEC2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "SecurityGroups" : [ { "Ref" : "WPSecurityGroup" } ],
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+        "SubnetId" : { "Ref" : "WordpressSubnet" },
+        "Tags" : [ {"Name" : "WP Node", "Applicant" : "Sean McIlroy"} ],
+        "Metadata" : {
+          "AWS::CloudFormation::Init" : {
+            "config" : {
+              "commands" : {
+                "install_docker" : { "command" : "yum install docker -y" },
+                "start_enable_docker" : { "command" : "service docker start && chkconfig docker on" },
+                "pull_docker_images" : { "command" : "docker pull mysql && docker pull wordpress" },
+                "run_mysql" : { "command" : "docker run --name rean_mysql -e MYSQL_ROOT_PASSWORD=password -d mysql" },
+                "run_wordpress" : { "command" : "docker run --name rean_wordpress --link rean_mysql:mysql -p 80:80 -d wordpress" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "CMSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable SSH access",
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : "0.0.0.0/0"
+        } ]
+      }
+    },
+
+    "WPSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable HTTP and SSH access.",
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : "0.0.0.0/0"
+        }, 
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : "80",
+          "ToPort" : "80",
+          "CidrIp" : "0.0.0.0/0"
+        }]
+      }
+    }
+},
+
+  "Outputs" : {
+    "AZ" : {
+      "Description" : "Availability Zone of the newly created EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "WPEC2Instance", "AvailabilityZone" ] }
+    },
+    "WPPublicDNS" : {
+      "Description" : "Public DNSName of the newly created Wordpress EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "WPEC2Instance", "PublicDnsName" ] }
+    },
+    "WPPublicIP" : {
+      "Description" : "Public IP address of the newly created WordPress EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "WPEC2Instance", "PublicIp" ] }
+    },
+    "WPPrivateIP" : {
+      "Description" : "Private IP address of the newly created WordPress EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "WPEC2Instance", "PrivateIp" ] }
+    },
+    "CMPublicDNS" : {
+      "Description" : "Public DNSName of the newly created CM EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "CMEC2Instance", "PublicDnsName" ] }
+    },
+    "CMPublicIP" : {
+      "Description" : "Public IP address of the newly created CM EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "CMEC2Instance", "PublicIp" ] }
+    }
+
+  }
+}
