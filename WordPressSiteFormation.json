@@ -159,7 +159,8 @@
             "#!/bin/bash -xe\n",
             "pip install ansible\n",
             "wget https://raw.githubusercontent.com/mcred89/rean_assignment/master/wordpress_site.yml -O /home/ec2-user/wordpress_site.yml\n",
-            "wget https://s3.amazonaws.com/TempKeyStoreMcIlroy/MyKeyPair.pem -O /root/.ssh/id_rsa.pub\n",
+            "aws s3 cp s3://TempKeyStore/MyKeyPair.pem /root/.ssh/id_rsa.pub\n",
+            "chmod 600 /root/.ssh/id_rsa.pub\n",
             "echo \"*  *  *  *  * /usr/local/bin/ansible-playbook all -i /home/ec2-user/hosts -b -u ec2-user /home/ec2-user/wordpress_site.yml\" > ansiblecron && crontab ansiblecron\n",
             { "Fn::Sub": [ "echo ${wpinstanceip} >> /home/ec2-user/hosts", { "wpinstanceip": {"Fn::GetAtt" : [ "WPEC2Instance", "PrivateIp" ]}}]}
             ]]}}
