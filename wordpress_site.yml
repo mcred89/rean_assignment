@@ -3,14 +3,14 @@
   become: yes
   vars:
     mysql_root_password: password
-	
+  
   tasks:
   
     - name: docker is installed and up to date
-	  yum:
-	    name: docker
-		state: latest
-	  
+      yum:
+        name: docker
+        state: latest
+    
     - name: docker service is running
       service:
         name: docker
@@ -19,27 +19,27 @@
 
     - name: wordpress image is pulled
       docker_image:
-		name: wordpress
-		  
-	- name: mysql image is pulled
+        name: wordpress
+      
+    - name: mysql image is pulled
       docker_image:
-		name: mysql
-	
+        name: mysql
+  
     - name: mysql container is running
-	  docker_container:
-	    name: rean_mysql
-		image: mysql
-		state: started 
-		env:
-		  MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-		  
-	- name: wordpress container is running
-	  docker_container:
-	    name: rean_wordpress
-        image: wordpress
-		state: started
-		links:
-		 - "rean_mysql:mysql"
-		ports:
-		 - "80:80"  
+      docker_container:
+      name: rean_mysql
+      image: mysql
+      state: started 
+      env:
+        MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      
+    - name: wordpress container is running
+      docker_container:
+      name: rean_wordpress
+      image: wordpress
+      state: started
+      links:
+       - "rean_mysql:mysql"
+      ports:
+       - "80:80"  
 
