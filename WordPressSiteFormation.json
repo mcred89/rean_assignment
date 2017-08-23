@@ -152,7 +152,7 @@
           "PolicyDocument" : {
             "Version" : "2012-10-17",
             "Statement" : [{
-              "Resource" : "arn:aws:s3:::mcilroy.secret/WorkHostKeyPair.pem",
+              "Resource" : "arn:aws:s3:::mcilroy-bucket/McIlroyKeyPair.pem",
               "Action" : ["s3:GetObject"],
               "Effect" : "Allow"
              }]
@@ -194,7 +194,7 @@
             "#!/bin/bash -xe\n",
             "pip install ansible\n",
             "pip install --upgrade --user awscli\n",
-            "aws s3 cp s3://mcilroy.secret/WorkHostKeyPair.pem /root/.ssh/id_rsa\n",
+            "aws s3 cp s3://mcilroy-bucket/McIlroyKeyPair.pem /root/.ssh/id_rsa\n",
             "chmod 600 /root/.ssh/id_rsa\n",
             "sed -i \"s/^#   StrictHostKeyChecking ask/StrictHostKeyChecking no/\" /etc/ssh/ssh_config\n",
             "service sshd reload\n",
