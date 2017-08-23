@@ -144,9 +144,44 @@
       }
     },
 
+    "KeyAccessRole" : {
+      "Type" : "AWS::IAM::Role",
+      "Properties" : {
+        "Policies" : [{
+          "PolicyName" : "KeyAccessPolicy",
+          "PolicyDocument" : {
+            "Version" : "2012-10-17",
+            "Statement" : [{
+              "Resource" : "arn:aws:s3:::mcilroy.secret/WorkHostKeyPair.pem",
+              "Action" : ["s3:GetObject"],
+              "Effect" : "Allow"
+             }]
+           }
+         }],
+        "Path" : "/",
+        "AssumeRolePolicyDocument" : { 
+          "Version" : "2012-10-17",
+          "Statement" : [{
+            "Action" : ["sts:AssumeRole"],
+            "Principal" : {"Service": ["ec2.amazonaws.com"]},
+            "Effect" : "Allow"
+          }]
+         }
+        }
+       },
+
+    "KeyAccessProfile" : {
+      "Type" : "AWS::IAM::InstanceProfile",
+      "Properties" : {
+        "Roles" : [{"Ref" : "KeyAccessRole"}],
+        "Path" : "/"
+      }
+    },
+
     "CMEC2Instance" : {
       "Type" : "AWS::EC2::Instance",
       "Properties" : {
+        "IamInstanceProfile" : { "Ref": "KeyAccessProfile" },
         "InstanceType" : { "Ref" : "InstanceType" },
         "SecurityGroupIds" : [{ "Ref" : "CMSecurityGroup" }],
         "KeyName" : { "Ref" : "KeyName" },
@@ -158,8 +193,13 @@
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
             "#!/bin/bash -xe\n",
             "pip install ansible\n",
+            "pip install --upgrade --user awscli\n",
+            "aws s3 cp s3://mcilroy.secret/WorkHostKeyPair.pem /root/.ssh/id_rsa\n",
+            "chmod 600 /root/.ssh/id_rsa\n",
+            "sed -i \"s/^#   StrictHostKeyChecking ask/StrictHostKeyChecking no/\" /etc/ssh/ssh_config\n",
+            "service sshd reload\n",
             "wget https://raw.githubusercontent.com/mcred89/rean_assignment/master/wordpress_site.yml -O /home/ec2-user/wordpress_site.yml\n",
-            "echo \"*  *  *  *  * /usr/local/bin/ansible-playbook all -i /home/ec2-user/hosts -b -u ec2-user /home/ec2-user/wordpress_site.yml\" > ansiblecron && crontab ansiblecron\n",
+            "echo \"*  *  *  *  * /usr/local/bin/ansible-playbook -i /home/ec2-user/hosts -b -u ec2-user /home/ec2-user/wordpress_site.yml\" > ansiblecron && crontab ansiblecron\n",
             { "Fn::Sub": [ "echo ${wpinstanceip} >> /home/ec2-user/hosts", { "wpinstanceip": {"Fn::GetAtt" : [ "WPEC2Instance", "PrivateIp" ]}}]}
             ]]}}
        },
@@ -181,6 +221,7 @@
             "#!/bin/bash -xe\n",
             "yum install docker -y\n",
             "service docker start && chkconfig docker on\n",
+            "pip install docker-py\n",
             "docker pull mysql && docker pull wordpress\n",
             "docker run --name rean_mysql -e MYSQL_ROOT_PASSWORD=password -d mysql\n",
             "docker run --name rean_wordpress --link rean_mysql:mysql -p 80:80 -d wordpress\n"
