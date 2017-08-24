@@ -25,6 +25,16 @@ The template:
 - Creates an Ansible node that manages the WordPress node, in a seperate secutiry group.
     - This node pulls its playbook from git hub and SSH keys from S3. It then runs a playbook that checks the state of the docker containers every minute. 
 
+# To Do:
 
+- Add ability to dynmically choose key pair. 
+    - Use Fn::Sub on the key copy from the CM node using a new Parameters declaration that sub enite 'from' portion of copy (s3://mcilroy-bucket/McIlroyKeyPair.pem)
+    - Add additional instructions to README for key pair creation, placement and command formattin
+- Get rid of IAM Role addition?
+    - Remove 2 role creation sections, along with line in CM node creation. 
+- Lock down ssh to web node to only come from CM node?
+    - Requires a 'depends on'?
+- Add parameter for mysql root password?
+    - Not that important...but having the password hard coded is bugging me. 
 
 
