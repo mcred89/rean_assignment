@@ -7,14 +7,20 @@ All of the scripts for this CloudFormation template can be found on: https://git
 
 # Usage: 
 
-There are a couple of assumtions made with this CloudFormation template:
-1: The below command and associate scirpts assume you are in the REAN lab environment.
-2: You have adequate permission within this environment to create IAM Roles.
-3: You have access to the 'McIlroyKeyPair'.
+1: You have to have adequate permission to create IAM Roles.
 
-Run the below command from an EC2 instance in the REAN Cloud lab environment:
+2: Copy the EC2 key pair that you will be using into an S3 bucket. The key's view permissions can (and should) be set to private. This key will be used to connect to both EC2 instances and from the Ansible node to the WordPress node.  
 
-aws cloudformation create-stack --stack-name mcilroy-stack --template-url https://s3.us-east-2.amazonaws.com/mcilroy-bucket/WordPressSiteFormation.json --parameters ParameterKey=KeyName,ParameterValue="McIlroyKeyPair" ParameterKey=InstanceType,ParameterValue="t2.micro" --capabilities CAPABILITY_IAM
+3: You can run this CloudFormation either directly from the AWS console or by copying the JSON file into your working directory and running the below command.
+
+If running the command: Fill out the 'KeyName' (without .pem) and 'Bucket' name values. This template will only accept 't2.mirco' and 't2.small' for the 'InstanceType' Value. Copy the entire block below.  
+
+aws cloudformation create-stack --stack-name mcilroy-stack1 --template-body file://WordPressSiteFormation.json --parameters \
+ParameterKey=KeyName,ParameterValue="KEYPAIR" \
+ParameterKey=InstanceType,ParameterValue="t2.micro" \
+ParameterKey=Bucket,ParameterValue="BUCKET" \
+--capabilities CAPABILITY_IAM
+ 
 
 # Outline of how the template works:
 
@@ -24,18 +30,5 @@ The template:
     - This node pulls basic WordPress and MySQL images from Docker Hub.
 - Creates an Ansible node that manages the WordPress node, in a seperate secutiry group.
     - This node pulls its playbook from git hub and SSH keys from S3. It then runs a playbook that checks the state of the docker containers every minute. 
-
-# To Do:
-
-- Add ability to dynmically choose key pair. 
-    - Use Fn::Sub on the key copy from the CM node using a new Parameters declaration that subs enite 'from' portion of copy (s3://mcilroy-bucket/McIlroyKeyPair.pem)
-    - Add additional instructions to README for key pair creation, placement and command formatting
-- Get rid of IAM Role addition?
-    - Remove 2 role creation sections, along with line in CM node creation. 
-    - Can I make this optional? 
-- Lock down ssh on web node to only come from CM node?
-    - Requires a 'depends on'?
-- Add parameter for mysql root password?
-    - Not that important...but having the password hard coded is bugging me. 
 
 
