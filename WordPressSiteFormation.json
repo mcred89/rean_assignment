@@ -10,6 +10,12 @@
       "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
     },
 
+    "Bucket": {
+      "Description" : "Name of an existing s3 Bucket",
+      "Type": "String",
+      "ConstraintDescription" : "must be the name of an existing s3 bucket."
+    },
+
     "InstanceType" : {
       "Description" : "EC2 instance type",
       "Type" : "String",
@@ -152,7 +158,7 @@
           "PolicyDocument" : {
             "Version" : "2012-10-17",
             "Statement" : [{
-              "Resource" : "arn:aws:s3:::mcilroy-bucket/McIlroyKeyPair.pem",
+              "Resource" : { "Fn::Sub": [ "arn:aws:s3:::${bucket}/${keypair}.pem", { "bucket": { "Ref" : "Bucket"}, "keypair": { "Ref" : "KeyName"}}]},
               "Action" : ["s3:GetObject"],
               "Effect" : "Allow"
              }]
@@ -194,7 +200,7 @@
             "#!/bin/bash -xe\n",
             "pip install ansible\n",
             "pip install --upgrade --user awscli\n",
-            "aws s3 cp s3://mcilroy-bucket/McIlroyKeyPair.pem /root/.ssh/id_rsa\n",
+            { "Fn::Sub": [ "aws s3 cp s3://${bucket}/${keypair}.pem  /root/.ssh/id_rsa\n", { "bucket": { "Ref" : "Bucket"}, "keypair": { "Ref" : "KeyName"}}]},
             "chmod 600 /root/.ssh/id_rsa\n",
             "sed -i \"s/^#   StrictHostKeyChecking ask/StrictHostKeyChecking no/\" /etc/ssh/ssh_config\n",
             "service sshd reload\n",
