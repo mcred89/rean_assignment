@@ -28,11 +28,12 @@ The template:
 # To Do:
 
 - Add ability to dynmically choose key pair. 
-    - Use Fn::Sub on the key copy from the CM node using a new Parameters declaration that sub enite 'from' portion of copy (s3://mcilroy-bucket/McIlroyKeyPair.pem)
-    - Add additional instructions to README for key pair creation, placement and command formattin
+    - Use Fn::Sub on the key copy from the CM node using a new Parameters declaration that subs enite 'from' portion of copy (s3://mcilroy-bucket/McIlroyKeyPair.pem)
+    - Add additional instructions to README for key pair creation, placement and command formatting
 - Get rid of IAM Role addition?
     - Remove 2 role creation sections, along with line in CM node creation. 
-- Lock down ssh to web node to only come from CM node?
+    - Can I make this optional? 
+- Lock down ssh on web node to only come from CM node?
     - Requires a 'depends on'?
 - Add parameter for mysql root password?
     - Not that important...but having the password hard coded is bugging me. 
