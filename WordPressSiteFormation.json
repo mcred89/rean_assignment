@@ -22,8 +22,7 @@
       "Default" : "t2.micro",
       "AllowedValues" : [ "t2.micro", "t2.small"],
       "ConstraintDescription" : "must be a valid EC2 instance type."
-    }
-  },
+    }},
 
   "Mappings" : {
     "AWSInstanceType2Arch" : {
@@ -47,22 +46,19 @@
       "ca-central-1"     : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-730ebd17", "HVMG2" : "NOT_SUPPORTED"},
       "sa-east-1"        : {"PV64" : "ami-1ad34676", "HVM64" : "ami-6dd04501", "HVMG2" : "NOT_SUPPORTED"},
       "cn-north-1"       : {"PV64" : "ami-77559f1a", "HVM64" : "ami-8e6aa0e3", "HVMG2" : "NOT_SUPPORTED"}
-    }
-
-  },
+    }},
 
   "Resources" : {
     "WordpressVPC": {
       "Type": "AWS::EC2::VPC",
       "Properties": {
         "CidrBlock" : "10.0.0.0/16",
-    	  "EnableDnsSupport" : "true",
-    	  "EnableDnsHostnames" : "true",
+          "EnableDnsSupport" : "true",
+          "EnableDnsHostnames" : "true",
         "InstanceTenancy" : "default",
         "Tags" : [ {"Key" : "Name", "Value" : "WordpressVPC"},
                    {"Key" : "Applicant" , "Value" : "Sean McIlroy"} ]
-      }
-    },
+      }},
     
     "WordpressSubnet": {
       "Type" : "AWS::EC2::Subnet",
@@ -72,31 +68,27 @@
         "MapPublicIpOnLaunch" : "true",
         "Tags" : [ {"Key" : "Name", "Value" : "WordpressSubnet"},
                    {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ]
-      }
-    },
+      }},
 
     "WordpressIG": {
       "Type": "AWS::EC2::InternetGateway",
       "Properties": {
         "Tags" : [ {"Key" : "Name", "Value" : "WordpresIG"},
                    {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ]
-      }
-    },
+      }},
 
     "AttachGateway" : {
       "Type" : "AWS::EC2::VPCGatewayAttachment",
       "Properties" : {
         "VpcId" : { "Ref" : "WordpressVPC" },
         "InternetGatewayId" : { "Ref" : "WordpressIG" }
-      }
-    },
+      }},
 
     "AddRoutingTable" : {
       "Type" : "AWS::EC2::RouteTable",
       "Properties" : {
         "VpcId" : { "Ref" : "WordpressVPC" }
-       }
-      },
+       }},
 
     "AddRouteToIG" : {
       "Type" : "AWS::EC2::Route",
@@ -105,16 +97,14 @@
         "RouteTableId" : { "Ref" : "AddRoutingTable" },
         "DestinationCidrBlock" : "0.0.0.0/0",
         "GatewayId" : { "Ref" : "WordpressIG" }
-      }
-     },
+      }},
 
     "AssociateSubenettoRouteTable": {
       "Type" : "AWS::EC2::SubnetRouteTableAssociation",
       "Properties" : {
         "SubnetId" : { "Ref" : "WordpressSubnet" },
         "RouteTableId" : { "Ref" : "AddRoutingTable" }
-      }
-     },
+      }},
 
     "CMSecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
@@ -126,9 +116,7 @@
           "FromPort" : "22",
           "ToPort" : "22",
           "CidrIp" : "0.0.0.0/0"
-        } ]
-      }
-    },
+        }]}},
 
     "WPSecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
@@ -146,9 +134,7 @@
           "FromPort" : "80",
           "ToPort" : "80",
           "CidrIp" : "0.0.0.0/0"
-        }]
-      }
-    },
+        }]}},
 
     "KeyAccessRole" : {
       "Type" : "AWS::IAM::Role",
@@ -161,9 +147,7 @@
               "Resource" : { "Fn::Sub": [ "arn:aws:s3:::${bucket}/${keypair}.pem", { "bucket": { "Ref" : "Bucket"}, "keypair": { "Ref" : "KeyName"}}]},
               "Action" : ["s3:GetObject"],
               "Effect" : "Allow"
-             }]
-           }
-         }],
+             }]}}],
         "Path" : "/",
         "AssumeRolePolicyDocument" : { 
           "Version" : "2012-10-17",
@@ -171,21 +155,43 @@
             "Action" : ["sts:AssumeRole"],
             "Principal" : {"Service": ["ec2.amazonaws.com"]},
             "Effect" : "Allow"
-          }]
-         }
-        }
-       },
+          }]}}},
 
     "KeyAccessProfile" : {
       "Type" : "AWS::IAM::InstanceProfile",
       "Properties" : {
         "Roles" : [{"Ref" : "KeyAccessRole"}],
         "Path" : "/"
-      }
-    },
+      }},
 
     "CMEC2Instance" : {
       "Type" : "AWS::EC2::Instance",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "config" : {
+            "commands" : {
+              "Setup_ssh" : {
+                "command" : "sed -i 's/^#   StrictHostKeyChecking ask/StrictHostKeyChecking no/' /etc/ssh/ssh_config && service sshd reload"
+              },
+              "Copy_key" : {
+                "command" : { "Fn::Join" : ["", [ "aws s3 cp s3://", { "Ref" : "Bucket" }, "/", { "Ref" : "KeyName" }, ".pem /root/.ssh/id_rsa && chmod 600 /root/.ssh/id_rsa" ]]}},
+              "Create_cronjob" : {
+                "command" : "echo '*  *  *  *  * /usr/local/bin/ansible-playbook -i /home/ec2-user/hosts -b -u ec2-user /home/ec2-user/wordpress_site.yml' > ansiblecron && crontab ansiblecron"
+              }},
+            "files": {
+              "/home/ec2-user/wordpress_site.yml" : {
+                "source" : "https://raw.githubusercontent.com/mcred89/rean_assignment/master/wordpress_site.yml",
+                "mode" : "000770",
+                "owner" : "root",
+                "group" : "ec2-user"
+              },
+              "/home/ec2-user/hosts" : {
+                "content" : {"Fn::GetAtt" : [ "WPEC2Instance", "PrivateIp" ]},
+                "mode" : "000770",
+                "owner" : "root",
+                "group" : "ec2-user"
+              }}}}},
+           
       "Properties" : {
         "IamInstanceProfile" : { "Ref": "KeyAccessProfile" },
         "InstanceType" : { "Ref" : "InstanceType" },
@@ -200,13 +206,11 @@
             "#!/bin/bash -xe\n",
             "pip install ansible\n",
             "pip install --upgrade --user awscli\n",
-            { "Fn::Sub": [ "aws s3 cp s3://${bucket}/${keypair}.pem  /root/.ssh/id_rsa\n", { "bucket": { "Ref" : "Bucket"}, "keypair": { "Ref" : "KeyName"}}]},
-            "chmod 600 /root/.ssh/id_rsa\n",
-            "sed -i \"s/^#   StrictHostKeyChecking ask/StrictHostKeyChecking no/\" /etc/ssh/ssh_config\n",
-            "service sshd reload\n",
-            "wget https://raw.githubusercontent.com/mcred89/rean_assignment/master/wordpress_site.yml -O /home/ec2-user/wordpress_site.yml\n",
-            "echo \"*  *  *  *  * /usr/local/bin/ansible-playbook -i /home/ec2-user/hosts -b -u ec2-user /home/ec2-user/wordpress_site.yml\" > ansiblecron && crontab ansiblecron\n",
-            { "Fn::Sub": [ "echo ${wpinstanceip} >> /home/ec2-user/hosts", { "wpinstanceip": {"Fn::GetAtt" : [ "WPEC2Instance", "PrivateIp" ]}}]}
+            "yum install aws-cfn-bootstrap -y\n",
+            "/opt/aws/bin/cfn-init ",
+            "         --stack ", { "Ref" : "AWS::StackName" },
+            "         --resource CMEC2Instance ",
+            "         --region ", { "Ref" : "AWS::Region" }, "\n"
             ]]}}
        },
        "DependsOn" : "WPEC2Instance"
@@ -214,6 +218,34 @@
 
     "WPEC2Instance" : {
       "Type" : "AWS::EC2::Instance",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {
+            "DockConfig" : [ "DockSet" , "DockRun" ]
+          },
+          "DockSet" : {
+            "packages" : {
+              "yum" : {
+                "docker" : []
+               }},
+            "services" : {
+              "sysvinit" : {
+                "docker" : { "enabled" : "true", "ensureRunning" : "true" }
+              }}},
+
+          "DockRun": {
+            "commands" : {
+              "Pull_Images" : {
+                "command" : "docker pull mysql && docker pull wordpress"
+              },
+              "Run_mysql" : {
+                "command" : "docker run --name rean_mysql -e MYSQL_ROOT_PASSWORD=password -d mysql"
+              },
+              "Run_wordpress" : {
+                "command" : "docker run --name rean_wordpress --link rean_mysql:mysql -p 80:80 -d wordpress"
+              }
+            }}}},
+            
       "Properties" : {
         "InstanceType" : { "Ref" : "InstanceType" },
         "SecurityGroupIds" : [{ "Ref" : "WPSecurityGroup" }],
@@ -225,15 +257,15 @@
                    {"Key" : "Applicant" , "Value" : "Sean McIlroy"}  ],
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
             "#!/bin/bash -xe\n",
-            "yum install docker -y\n",
-            "service docker start && chkconfig docker on\n",
             "pip install docker-py\n",
-            "docker pull mysql && docker pull wordpress\n",
-            "docker run --name rean_mysql -e MYSQL_ROOT_PASSWORD=password -d mysql\n",
-            "docker run --name rean_wordpress --link rean_mysql:mysql -p 80:80 -d wordpress\n"
+            "yum install aws-cfn-bootstrap -y\n",
+            "/opt/aws/bin/cfn-init ",
+            "         --stack ", { "Ref" : "AWS::StackName" },
+            "         --resource WPEC2Instance ",
+            "         --configsets DockConfig ",
+            "         --region ", { "Ref" : "AWS::Region" }, "\n"
             ]]}}
-      } 
-     } 
+      }} 
  },
 
   "Outputs" : {
