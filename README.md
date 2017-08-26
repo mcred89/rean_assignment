@@ -15,12 +15,13 @@ All of the scripts for this CloudFormation template can be found on: https://git
 
 If running the command: Fill out the 'KeyName' (without .pem) and 'Bucket' name values. This template will only accept 't2.mirco' and 't2.small' for the 'InstanceType' Value. Copy the entire block below.  
 
-aws cloudformation create-stack --stack-name mcilroy-stack1 --template-body file://WordPressSiteFormation.json --parameters \
+<pre><code>
+aws cloudformation create-stack --stack-name mcilroy-stack --template-body file://WordPressSiteFormation.json --parameters \
 ParameterKey=KeyName,ParameterValue="KEYPAIR" \
 ParameterKey=InstanceType,ParameterValue="t2.micro" \
 ParameterKey=Bucket,ParameterValue="BUCKET" \
 --capabilities CAPABILITY_IAM
- 
+</code></pre>
 
 # Outline of how the template works:
 
@@ -30,5 +31,3 @@ The template:
     - This node pulls basic WordPress and MySQL images from Docker Hub.
 - Creates an Ansible node that manages the WordPress node, in a seperate secutiry group.
     - This node pulls its playbook from git hub and SSH keys from S3. It then runs a playbook that checks the state of the docker containers every minute. 
-
-
